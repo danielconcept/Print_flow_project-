@@ -49,3 +49,7 @@ supabase/.branches
 supabase/.temp
 *.rar
 *.zip
+
+.next/
+*.rar
+*.zip
