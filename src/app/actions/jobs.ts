@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { jobSchema } from "@/lib/domain/schemas";
-import { quantityMilliToNumber } from "@/lib/domain/money";
+import { calculateLineAmounts, quantityMilliToNumber } from "@/lib/domain/money";
 import { AppError } from "@/lib/errors";
 import { PERMISSIONS } from "@/lib/permissions";
 import { requirePermissionApi } from "@/lib/supabase/auth";
@@ -19,17 +19,12 @@ export async function createJob(input: unknown): Promise<ActionResult<{ id: stri
       throw new AppError("INVALID", "Invalid job data.", parsed.error.message, 400);
     }
 
-    const { data: code } = await supabase.rpc("next_document_number", {
-      p_company_id: context.company.id,
-      p_doc_type: "JOB",
-    } as any);
-
     const { data: job, error } = await supabase
       .from("job_orders")
       .insert({
         company_id: context.company.id,
         customer_id: parsed.data.customerId,
-        job_number: (code as string) ?? `JOB-${Date.now()}`,
+        job_number: "",
         title: parsed.data.title,
         description: parsed.data.description ?? null,
         status: "received",
@@ -54,6 +49,13 @@ export async function createJob(input: unknown): Promise<ActionResult<{ id: stri
       quantity: quantityMilliToNumber(item.quantity),
       unit: item.unit,
       unit_price_minor: item.unitPrice,
+      discount_minor: item.discount,
+      tax_minor: calculateLineAmounts({
+        quantityMilli: item.quantity,
+        unitPriceMinor: item.unitPrice,
+        discountMinor: item.discount,
+        taxRateBp: item.taxRate,
+      }).taxMinor,
       dimensions: item.dimensions ?? null,
       production_notes: item.productionNotes ?? null,
     }));
@@ -77,14 +79,14 @@ export async function transitionJobStatus(
 
     const { data, error } = await supabase.rpc("transition_job_status", {
       p_job_id: jobId,
-      p_to_status: toStatus,
-      p_reason: reason ?? null,
+      p_new_status: toStatus,
+      p_note: reason ?? null,
     });
 
     if (error) throw error;
     revalidatePath("/jobs");
     revalidatePath(`/jobs/${jobId}`);
-    return { status: data as string };
+    return { status: (data as { status: string }).status };
   });
 }
 
@@ -100,7 +102,7 @@ export async function consumeJobMaterials(
 
     const { error } = await supabase.rpc("consume_job_materials", {
       p_job_id: jobId,
-      p_items: items.map((item) => ({ material_id: item.materialId, quantity_milli: item.quantity })),
+      p_items: items.map((item) => ({ material_id: item.materialId, quantity: quantityMilliToNumber(item.quantity) })),
       p_note: note ?? null,
       p_idempotency_key: idempotencyKey ?? crypto.randomUUID(),
     });

@@ -667,6 +667,7 @@ as $$
 declare
   v_material public.materials;
   v_new_qty numeric;
+  v_movement_id uuid;
 begin
   select * into v_material
   from public.materials
@@ -692,11 +693,16 @@ begin
     raise exception 'INVALID_UNIT_COST' using errcode = 'P0001';
   end if;
 
-  if exists (
-    select 1 from public.stock_movements
-    where company_id = v_material.company_id and idempotency_key = p_idempotency_key
-  ) then
-    return jsonb_build_object('status', 'duplicate', 'material_id', v_material.id);
+  select id into v_movement_id
+  from public.stock_movements
+  where company_id = v_material.company_id and idempotency_key = p_idempotency_key;
+
+  if v_movement_id is not null then
+    return jsonb_build_object(
+      'status', 'duplicate',
+      'material_id', v_material.id,
+      'movement_id', v_movement_id
+    );
   end if;
 
   v_new_qty := v_material.quantity_on_hand + p_quantity_delta;
@@ -711,7 +717,7 @@ begin
     v_material.company_id, v_material.id, p_movement_type, p_quantity_delta,
     coalesce(p_unit_cost_minor, v_material.average_unit_cost_minor),
     'adjustment', v_material.id, p_note, auth.uid(), p_idempotency_key
-  );
+  ) returning id into v_movement_id;
 
   perform set_config('app.stock_movement', 'allowed', true);
   update public.materials
@@ -727,7 +733,7 @@ begin
 
   perform public.queue_low_stock_notification(v_material.id);
 
-  return jsonb_build_object('status', 'applied', 'material_id', v_material.id, 'quantity_on_hand', v_new_qty);
+  return jsonb_build_object('status', 'applied', 'material_id', v_material.id, 'movement_id', v_movement_id, 'quantity_on_hand', v_new_qty);
 end;
 $$;
 

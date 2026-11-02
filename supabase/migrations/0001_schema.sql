@@ -173,7 +173,7 @@ create table if not exists public.quotation_items (
   constraint quotation_items_quotation_fk foreign key (quotation_id, company_id)
     references public.quotations (id, company_id) on delete cascade,
   constraint quotation_items_service_fk foreign key (service_id, company_id)
-    references public.services (id, company_id) on delete set null
+    references public.services (id, company_id) on delete set null (service_id)
 );
 create index if not exists quotation_items_quotation_idx on public.quotation_items (quotation_id, position);
 
@@ -211,7 +211,7 @@ create table if not exists public.job_orders (
   constraint job_orders_customer_fk foreign key (customer_id, company_id)
     references public.customers (id, company_id) on delete restrict,
   constraint job_orders_quotation_fk foreign key (quotation_id, company_id)
-    references public.quotations (id, company_id) on delete set null
+    references public.quotations (id, company_id) on delete set null (quotation_id)
 );
 create index if not exists job_orders_company_status_idx on public.job_orders (company_id, status, due_date);
 create index if not exists job_orders_company_customer_idx on public.job_orders (company_id, customer_id);
@@ -238,7 +238,7 @@ create table if not exists public.job_items (
   constraint job_items_job_fk foreign key (job_order_id, company_id)
     references public.job_orders (id, company_id) on delete cascade,
   constraint job_items_service_fk foreign key (service_id, company_id)
-    references public.services (id, company_id) on delete set null
+    references public.services (id, company_id) on delete set null (service_id)
 );
 create index if not exists job_items_job_idx on public.job_items (job_order_id, position);
 
@@ -314,9 +314,9 @@ create table if not exists public.invoices (
   constraint invoices_customer_fk foreign key (customer_id, company_id)
     references public.customers (id, company_id) on delete restrict,
   constraint invoices_job_fk foreign key (job_order_id, company_id)
-    references public.job_orders (id, company_id) on delete set null,
+    references public.job_orders (id, company_id) on delete set null (job_order_id),
   constraint invoices_quotation_fk foreign key (quotation_id, company_id)
-    references public.quotations (id, company_id) on delete set null,
+    references public.quotations (id, company_id) on delete set null (quotation_id),
   constraint invoices_amount_paid_within_total check (amount_paid_minor <= total_minor)
 );
 create index if not exists invoices_company_status_idx on public.invoices (company_id, status, due_date);
@@ -342,7 +342,7 @@ create table if not exists public.invoice_items (
   constraint invoice_items_invoice_fk foreign key (invoice_id, company_id)
     references public.invoices (id, company_id) on delete cascade,
   constraint invoice_items_service_fk foreign key (service_id, company_id)
-    references public.services (id, company_id) on delete set null
+    references public.services (id, company_id) on delete set null (service_id)
 );
 create index if not exists invoice_items_invoice_idx on public.invoice_items (invoice_id, position);
 
@@ -544,7 +544,7 @@ create table if not exists public.expenses (
   constraint expenses_company_id_unique unique (id, company_id),
   constraint expenses_number_unique unique (company_id, expense_number),
   constraint expenses_supplier_fk foreign key (supplier_id, company_id)
-    references public.suppliers (id, company_id) on delete set null
+    references public.suppliers (id, company_id) on delete set null (supplier_id)
 );
 create index if not exists expenses_company_date_idx on public.expenses (company_id, expense_date desc);
 create index if not exists expenses_company_category_idx on public.expenses (company_id, category);
@@ -567,7 +567,7 @@ create table if not exists public.notifications (
   read_at timestamptz,
   created_at timestamptz not null default now(),
   constraint notifications_customer_fk foreign key (customer_id, company_id)
-    references public.customers (id, company_id) on delete set null
+    references public.customers (id, company_id) on delete set null (customer_id)
 );
 create unique index if not exists notifications_dedupe_unique
   on public.notifications (company_id, dedupe_key)

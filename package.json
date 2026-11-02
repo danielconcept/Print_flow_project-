@@ -12,7 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:unit": "vitest run tests/unit",
-    "test:db": "vitest run tests/integration tests/security",
+    "test:db": "vitest run tests/integration",
     "test:e2e": "playwright test",
     "db:validate": "tsx scripts/validate-migrations.ts",
     "seed:dev": "tsx scripts/seed-dev.ts"

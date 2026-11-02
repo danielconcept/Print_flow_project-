@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { CreateDocumentForm } from "@/components/documents/create-document-form";
+import { DatabaseSetupNotice } from "@/components/database-setup-notice";
+import { isSupabaseConfigured } from "@/lib/env";
 import { Button } from "@/components/ui/button";
 import { PERMISSIONS } from "@/lib/permissions";
 import { requirePermissionPage } from "@/lib/supabase/auth";
@@ -8,6 +10,9 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 export const dynamic = "force-dynamic";
 
 export default async function NewJobPage() {
+  if (!isSupabaseConfigured()) {
+    return <DatabaseSetupNotice moduleName="Job creation" />;
+  }
   const context = await requirePermissionPage(PERMISSIONS.JOBS_MANAGE);
   const supabase = await createServerSupabaseClient();
   const { data, error } = await supabase.from("customers").select("id, name, customer_code")

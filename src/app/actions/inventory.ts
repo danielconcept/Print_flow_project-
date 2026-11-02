@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { adjustStockSchema, materialSchema, purchaseOrderSchema, receiptSchema } from "@/lib/domain/schemas";
+import { quantityMilliToNumber } from "@/lib/domain/money";
 import { AppError } from "@/lib/errors";
 import { PERMISSIONS } from "@/lib/permissions";
 import { requirePermissionApi } from "@/lib/supabase/auth";
@@ -18,21 +19,15 @@ export async function createMaterial(input: unknown): Promise<ActionResult<{ id:
       throw new AppError("INVALID", "Invalid material data.", parsed.error.message, 400);
     }
 
-    const { data: code } = await supabase.rpc("next_document_number", {
-      p_company_id: context.company.id,
-      p_doc_type: "MAT",
-    } as any);
-
     const { data, error } = await supabase
       .from("materials")
       .insert({
         company_id: context.company.id,
-        material_code: (code as string) ?? `MAT-${Date.now()}`,
+        material_code: parsed.data.code ?? "",
         name: parsed.data.name,
-        code: parsed.data.code ?? null,
         category: parsed.data.category,
         unit: parsed.data.unit,
-        reorder_level: parsed.data.reorderLevel,
+        reorder_level: quantityMilliToNumber(parsed.data.reorderLevel),
         active: parsed.data.active,
         created_by: context.user.id,
         updated_by: context.user.id,
@@ -57,7 +52,7 @@ export async function adjustStock(input: unknown): Promise<ActionResult<{ moveme
 
     const { data, error } = await supabase.rpc("adjust_stock", {
       p_material_id: parsed.data.materialId,
-      p_quantity_delta: parsed.data.quantityDelta,
+      p_quantity_delta: quantityMilliToNumber(parsed.data.quantityDelta),
       p_movement_type: parsed.data.movementType,
       p_note: parsed.data.note,
       p_idempotency_key: parsed.data.idempotencyKey,
@@ -65,8 +60,12 @@ export async function adjustStock(input: unknown): Promise<ActionResult<{ moveme
     });
 
     if (error) throw error;
+    const result = data as { movement_id?: string };
+    if (!result?.movement_id) {
+      throw new AppError("INTERNAL", "Stock adjustment did not return a movement ID.", "Stock adjustment could not be confirmed.", 500);
+    }
     revalidatePath("/inventory");
-    return { movementId: data as string };
+    return { movementId: result.movement_id };
   });
 }
 
@@ -79,18 +78,13 @@ export async function createPurchaseOrder(input: unknown): Promise<ActionResult<
       throw new AppError("INVALID", "Invalid purchase order data.", parsed.error.message, 400);
     }
 
-    const { data: code } = await supabase.rpc("next_document_number", {
-      p_company_id: context.company.id,
-      p_doc_type: "PO",
-    } as any);
-
     const { data: po, error } = await supabase
       .from("purchase_orders")
       .insert({
         company_id: context.company.id,
         supplier_id: parsed.data.supplierId,
-        purchase_order_number: (code as string) ?? `PO-${Date.now()}`,
-        status: "ordered",
+        purchase_order_number: "",
+        status: "draft",
         order_date: parsed.data.orderDate,
         expected_date: parsed.data.expectedDate ?? null,
         notes: parsed.data.notes ?? null,
@@ -107,12 +101,21 @@ export async function createPurchaseOrder(input: unknown): Promise<ActionResult<
       company_id: context.company.id,
       position: index,
       material_id: item.materialId,
-      quantity_ordered: item.quantity,
+      quantity_ordered: quantityMilliToNumber(item.quantity),
       unit_cost_minor: item.unitCost,
     }));
 
     const { error: itemsError } = await supabase.from("purchase_order_items").insert(items as any);
     if (itemsError) throw itemsError;
+
+    // The database intentionally creates POs as drafts; order it only after its lines exist.
+    const { error: orderError } = await supabase
+      .from("purchase_orders")
+      .update({ status: "ordered", updated_by: context.user.id })
+      .eq("id", po.id)
+      .eq("company_id", context.company.id)
+      .eq("status", "draft");
+    if (orderError) throw orderError;
 
     revalidatePath("/purchases");
     return { id: po.id };
@@ -132,7 +135,7 @@ export async function receivePurchaseOrder(input: unknown): Promise<ActionResult
       p_purchase_order_id: parsed.data.purchaseOrderId,
       p_items: parsed.data.items.map((item) => ({
         item_id: item.itemId,
-        quantity_milli: item.quantity,
+        quantity: quantityMilliToNumber(item.quantity),
         unit_cost_minor: item.unitCost ?? null,
       })),
       p_idempotency_key: parsed.data.idempotencyKey,
@@ -142,5 +145,25 @@ export async function receivePurchaseOrder(input: unknown): Promise<ActionResult
     revalidatePath("/purchases");
     revalidatePath("/inventory");
     return { ok: true };
+  });
+}
+
+export async function orderPurchaseOrder(id: string): Promise<ActionResult<{ id: string }>> {
+  return withAction(async () => {
+    const context = await requirePermissionApi(PERMISSIONS.PURCHASES_MANAGE);
+    const supabase = await createServerSupabaseClient();
+
+    const { data, error } = await supabase
+      .from("purchase_orders")
+      .update({ status: "ordered", updated_by: context.user.id })
+      .eq("id", id)
+      .eq("company_id", context.company.id)
+      .eq("status", "draft")
+      .select("id")
+      .single();
+
+    if (error) throw error;
+    revalidatePath("/purchases");
+    return { id: data.id };
   });
 }

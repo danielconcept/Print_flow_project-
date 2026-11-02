@@ -1,4 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { DatabaseSetupNotice } from "@/components/database-setup-notice";
 import { Button } from "@/components/ui/button";
 import { isSupabaseConfigured } from "@/lib/env";
 import Link from "next/link";
@@ -7,6 +8,18 @@ import { requirePermissionPage } from "@/lib/supabase/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export default async function JobsPage() {
+  if (!isSupabaseConfigured()) {
+    return (
+      <div className="space-y-6">
+        <header>
+          <h1 className="text-2xl font-semibold tracking-tight">Jobs</h1>
+          <p className="text-sm text-muted-foreground">Production workflow and status tracking</p>
+        </header>
+        <DatabaseSetupNotice moduleName="Job management" />
+      </div>
+    );
+  }
+
   const context = await requirePermissionPage(PERMISSIONS.JOBS_VIEW);
   const supabase = await createServerSupabaseClient();
   const { data: jobs, error } = await supabase.from("job_orders")

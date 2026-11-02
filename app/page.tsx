@@ -8,16 +8,13 @@ export default async function HomePage() {
   if (!isSupabaseConfigured()) {
     redirect("/dashboard");
   }
-  try {
-    const context = await getSessionContext();
-    if (!context.user.id) {
-      redirect("/login");
-    }
-    if (!context.company) {
-      redirect("/onboarding");
-    }
-    redirect("/dashboard");
-  } catch {
+
+  const context = await getSessionContext();
+  if (!context.user.id) {
     redirect("/login");
   }
+  if (!context.company) {
+    redirect("/onboarding");
+  }
+  redirect("/dashboard");
 }

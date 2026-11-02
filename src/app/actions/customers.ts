@@ -18,16 +18,11 @@ export async function createCustomer(input: unknown): Promise<ActionResult<{ id:
       throw new AppError("INVALID", "Invalid customer data.", parsed.error.message, 400);
     }
 
-    const { data: code } = await supabase.rpc("next_document_number", {
-      p_company_id: context.company.id,
-      p_doc_type: "CUS",
-    } as any);
-
     const { data, error } = await supabase
       .from("customers")
       .insert({
         company_id: context.company.id,
-        customer_code: (code as string) ?? `CUS-${Date.now()}`,
+        customer_code: "",
         name: parsed.data.name,
         phone: parsed.data.phone,
         email: parsed.data.email ?? null,
