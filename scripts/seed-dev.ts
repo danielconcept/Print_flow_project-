@@ -1,3 +1,4 @@
+import process from "process";
 import { createTestDb, seedTwoCompanies } from "../tests/helpers/db";
 
 async function main() {

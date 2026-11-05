@@ -27,7 +27,12 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
         return;
       }
       if (isRegister) {
-        router.replace("/register/check-email");
+        router.replace(
+          "needsEmailConfirmation" in result.data && result.data.needsEmailConfirmation
+            ? "/register/check-email"
+            : "/onboarding",
+        );
+        router.refresh();
         return;
       }
       router.replace("/dashboard");

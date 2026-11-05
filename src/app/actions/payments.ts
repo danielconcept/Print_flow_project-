@@ -19,11 +19,13 @@ export async function recordPayment(input: unknown): Promise<ActionResult<{ id: 
     }
 
     const { data, error } = await supabase.rpc("record_payment", {
+      p_company_id: context.company.id,
       p_customer_id: parsed.data.customerId,
       p_amount_minor: parsed.data.amount,
       p_payment_method: parsed.data.paymentMethod,
       p_payment_date: parsed.data.paymentDate,
-      p_reference: parsed.data.reference ?? null,
+      p_reference: null,
+      p_external_reference: parsed.data.reference ?? null,
       p_notes: parsed.data.notes ?? null,
       p_allocations: parsed.data.allocations.map((item) => ({
         invoice_id: item.invoiceId,
@@ -36,7 +38,7 @@ export async function recordPayment(input: unknown): Promise<ActionResult<{ id: 
     revalidatePath("/payments");
     revalidatePath("/invoices");
     revalidatePath("/customers");
-    return { id: data as string };
+    return { id: (data as { payment_id: string }).payment_id };
   });
 }
 

@@ -1,5 +1,6 @@
-import { readdir, readFile } from "node:fs/promises";
-import path from "node:path";
+import { readdir, readFile } from "fs/promises";
+import path from "path";
+import process from "process";
 
 const MIGRATIONS_DIR = path.join(process.cwd(), "supabase", "migrations");
 

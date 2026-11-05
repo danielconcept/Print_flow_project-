@@ -31,7 +31,7 @@ export async function signIn(input: unknown): Promise<ActionResult<{ ok: true }>
   });
 }
 
-export async function signUp(input: unknown): Promise<ActionResult<{ ok: true }>> {
+export async function signUp(input: unknown): Promise<ActionResult<{ needsEmailConfirmation: boolean }>> {
   return withAction(async () => {
     const supabase = await createServerSupabaseClient();
     const parsed = registerSchema.safeParse(input);
@@ -42,7 +42,7 @@ export async function signUp(input: unknown): Promise<ActionResult<{ ok: true }>
     const callbackUrl = new URL("/auth/callback", getAppUrl());
     callbackUrl.searchParams.set("next", "/onboarding");
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email: parsed.data.email,
       password: parsed.data.password,
       options: {
@@ -53,7 +53,7 @@ export async function signUp(input: unknown): Promise<ActionResult<{ ok: true }>
       },
     });
     if (error) throw error;
-    return { ok: true };
+    return { needsEmailConfirmation: !data.session };
   });
 }
 
@@ -74,7 +74,7 @@ export async function sendPasswordReset(input: unknown): Promise<ActionResult<{ 
     }
     const supabase = await createServerSupabaseClient();
     const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
-      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/auth/callback?next=/reset-password`,
+      redirectTo: `${getAppUrl()}/auth/callback?next=/reset-password`,
     });
     if (error) throw error;
     return { ok: true };

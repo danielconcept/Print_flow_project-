@@ -19,17 +19,12 @@ export async function createQuotation(input: unknown): Promise<ActionResult<{ id
       throw new AppError("INVALID", "Invalid quotation data.", parsed.error.message, 400);
     }
 
-    const { data: code } = await supabase.rpc("next_document_number", {
-      p_company_id: context.company.id,
-      p_doc_type: "QUO",
-    } as any);
-
     const { data: quotation, error } = await supabase
       .from("quotations")
       .insert({
         company_id: context.company.id,
         customer_id: parsed.data.customerId,
-        quotation_number: (code as string) ?? `QUO-${Date.now()}`,
+        quotation_number: "",
         status: "draft",
         issue_date: parsed.data.issueDate,
         valid_until: parsed.data.validUntil ?? null,
@@ -90,17 +85,21 @@ export async function updateQuotationStatus(
 
 export async function convertQuotationToJob(
   id: string,
-  input: { jobTitle: string; dueDate?: string; assignedTo?: string } = { jobTitle: "Converted job" },
+  input: {
+    jobTitle?: string;
+    dueDate?: string;
+    priority?: "low" | "normal" | "high" | "urgent";
+  } = {},
 ): Promise<ActionResult<{ jobId: string }>> {
   return withAction(async () => {
-    const context = await requirePermissionApi(PERMISSIONS.QUOTATIONS_MANAGE);
+    const context = await requirePermissionApi(PERMISSIONS.JOBS_MANAGE);
     const supabase = await createServerSupabaseClient();
 
     const { data, error } = await supabase.rpc("convert_quotation_to_job", {
       p_quotation_id: id,
-      p_job_title: input.jobTitle,
+      p_title: input.jobTitle ?? null,
       p_due_date: input.dueDate ?? null,
-      p_assigned_to: input.assignedTo ?? null,
+      p_priority: input.priority ?? "normal",
     });
 
     if (error) throw error;

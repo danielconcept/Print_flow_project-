@@ -1,12 +1,22 @@
+import process from "process";
+
 export interface SupabaseConfig {
   url: string;
   anonKey: string;
 }
 
-export function getSupabaseConfig(): SupabaseConfig {
+export function getSupabaseUrl(): string {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  if (!url) {
+    throw new Error("NEXT_PUBLIC_SUPABASE_URL is not configured.");
+  }
+  return url;
+}
+
+export function getSupabaseConfig(): SupabaseConfig {
+  const url = getSupabaseUrl();
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
-  if (!url || !anonKey) {
+  if (!anonKey) {
     throw new Error(
       "Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.",
     );
@@ -80,8 +90,5 @@ export function assertProductionConfiguration(): string[] {
   if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) missing.push("NEXT_PUBLIC_SUPABASE_ANON_KEY");
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) missing.push("SUPABASE_SERVICE_ROLE_KEY");
   if (!process.env.NEXT_PUBLIC_APP_URL) missing.push("NEXT_PUBLIC_APP_URL");
-  if (!process.env.RESEND_API_KEY) missing.push("RESEND_API_KEY");
-  if (!process.env.EMAIL_FROM) missing.push("EMAIL_FROM");
-  if (!process.env.CRON_SECRET) missing.push("CRON_SECRET");
   return missing;
 }

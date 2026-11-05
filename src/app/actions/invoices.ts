@@ -19,11 +19,6 @@ export async function createInvoice(input: unknown): Promise<ActionResult<{ id: 
       throw new AppError("INVALID", "Invalid invoice data.", parsed.error.message, 400);
     }
 
-    const { data: code } = await supabase.rpc("next_document_number", {
-      p_company_id: context.company.id,
-      p_doc_type: "INV",
-    } as any);
-
     const { data: invoice, error } = await supabase
       .from("invoices")
       .insert({
@@ -31,7 +26,7 @@ export async function createInvoice(input: unknown): Promise<ActionResult<{ id: 
         customer_id: parsed.data.customerId,
         job_order_id: parsed.data.jobOrderId ?? null,
         quotation_id: parsed.data.quotationId ?? null,
-        invoice_number: (code as string) ?? `INV-${Date.now()}`,
+        invoice_number: "",
         status: "draft",
         issue_date: parsed.data.issueDate,
         due_date: parsed.data.dueDate ?? null,
